@@ -5,20 +5,18 @@ super-resolution with a Deep Image Prior (DIP). The model is trained from
 scratch for each image; there is no dataset pretraining.
 
 The repository is intentionally notebook-first. The code under `src/dip_sr`
-is a small importable package, while the committed notebook is the cloud
-experiment template that can later contain the final DIP variants and W&B
-results.
+is a small importable package, while the committed notebook contains the
+experiment and its visual and quantitative comparisons.
 
 ## Assignment-aligned workflow
 
-1. Clone or upload this repository to Google Colab or Kaggle.
+1. Clone or upload this repository to Google Colab.
 2. Open [`notebooks/super_resolution_template.ipynb`](notebooks/super_resolution_template.ipynb).
-3. Run the first setup cell to install the packages from `requirements.txt`.
-3. Run the baseline against the included/selected image.
-4. Add model or optimization variants as separate W&B runs with the same
-   input, scale, seed, and evaluation protocol.
-5. Commit the notebook after the cloud runs so the visual comparison, PSNR
-   table, and W&B links are part of the GitHub history.
+3. Run every cell from top to bottom in a fresh runtime.
+4. Authenticate with W&B when prompted. The experiment uses the
+   [`dip-sr-pnp` W&B project](https://wandb.ai/dhadheechi/dip-sr-pnp).
+5. Verify the PSNR table, bar chart, image grids, and W&B runs before
+   downloading the repository.
 
 The experiment logs both low-resolution reconstruction PSNR (the optimization
 objective) and high-resolution PSNR (available when a ground-truth HR image is
@@ -43,9 +41,6 @@ In Colab, the notebook setup cell does the equivalent:
 The requirements file includes PyTorch. Colab users can omit reinstalling
 `torch` and `torchvision` if the runtime already provides compatible versions.
 For GPU training, use a runtime whose PyTorch build matches its CUDA runtime.
-W&B is optional at runtime: leave `wandb_project=None` for a local/offline
-smoke test, or set a project name and authenticate with `wandb.login()` before
-training.
 
 ## Layout
 
@@ -57,33 +52,28 @@ requirements.txt             pip dependencies for local use and Colab
 
 ## Scope
 
-The notebook now includes a controlled improvement based on the PnP ideas in
+The notebook includes a controlled variant based on the PnP ideas in
 `Lecture9_RoleOfDenoisersOutsideDenoising.pdf`. It first runs the DIP baseline,
 then performs image-space plug-and-play refinement: bicubic data-consistency
 gradient steps are alternated with gentle TV denoising while the denoiser
-strength is gradually reduced. The refinement starts from bicubic rather than
-from a visibly failed DIP output, and retains the iterate with the best
-low-resolution measurement fit. The HR image is used only for evaluation, not
-by the refinement.
+strength is gradually reduced. The HR image is used only for evaluation, not
+by the refinement. The comparison reports bicubic, DIP, and DIP + PnP PSNR,
+along with image grids for every evaluated image.
 
 ## Colab step-by-step
 
 1. Open `notebooks/super_resolution_template.ipynb` in Google Colab.
 2. Select **Runtime > Change runtime type > T4 GPU** (or another available
    GPU).
-3. Run the setup cell. It clones the repository if necessary and installs
-   `requirements.txt`, including `wandb`.
+3. Run all cells in order. The setup cell clones the repository if necessary
+   and installs `requirements.txt`, including `wandb`.
 4. Create a free account at [wandb.ai](https://wandb.ai), or use an existing
    one. Run the W&B cell and paste the API key from the displayed login link.
    The key is stored by the Colab runtime and is not written to the notebook.
-5. Run the data, baseline, PnP, and comparison cells in order. The notebook
-   prints the PSNR for bicubic, DIP, and DIP + PnP, plus the PnP improvement in
-   dB.
-6. Open the `dip-sr-pnp` project in W&B and compare the
-   `dip-baseline-zebra` and `dip-pnp-tv-zebra` runs.
+5. The notebook prints the PSNR for bicubic, DIP, and DIP + PnP, plus the PnP
+   improvement in dB. Open the W&B project link above to inspect the runs,
+   including `dip-baseline-zebra` and `dip-pnp-tv-zebra`.
 
-The default experiment uses `data/sr/zebra_GT.png` to create a reproducible
-synthetic bicubic LR observation. For another image, change `image_path` in
-the notebook and keep the image, scale, seed, and iteration budget identical
-between the two runs. The UV and GitHub integration steps are intentionally
-left out; GitHub is only needed to obtain the notebook.
+The experiment uses the images listed in the notebook to create reproducible
+synthetic bicubic LR observations. Keep the image, scale, seed, and iteration
+budget identical when comparing DIP with DIP + PnP.
