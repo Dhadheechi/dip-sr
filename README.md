@@ -57,6 +57,31 @@ requirements.txt             pip dependencies for local use and Colab
 
 ## Scope
 
-This is a baseline template, not a claim of a completed assignment result.
-The intended next step is to implement one controlled DIP variation, run it
-against this baseline in the cloud, and compare images and metrics in W&B.
+The notebook now includes a controlled improvement based on the PnP ideas in
+`Lecture9_RoleOfDenoisersOutsideDenoising.pdf`. It first runs the DIP baseline,
+then performs image-space plug-and-play refinement: bicubic data-consistency
+gradient steps are alternated with TV denoising while the denoiser strength is
+gradually reduced. The HR image is used only for evaluation, not by the
+refinement.
+
+## Colab step-by-step
+
+1. Open `notebooks/super_resolution_template.ipynb` in Google Colab.
+2. Select **Runtime > Change runtime type > T4 GPU** (or another available
+   GPU).
+3. Run the setup cell. It clones the repository if necessary and installs
+   `requirements.txt`, including `wandb`.
+4. Create a free account at [wandb.ai](https://wandb.ai), or use an existing
+   one. Run the W&B cell and paste the API key from the displayed login link.
+   The key is stored by the Colab runtime and is not written to the notebook.
+5. Run the data, baseline, PnP, and comparison cells in order. The notebook
+   prints the PSNR for bicubic, DIP, and DIP + PnP, plus the PnP improvement in
+   dB.
+6. Open the `dip-sr-pnp` project in W&B and compare the
+   `dip-baseline-zebra` and `dip-pnp-tv-zebra` runs.
+
+The default experiment uses `data/sr/zebra_GT.png` to create a reproducible
+synthetic bicubic LR observation. For another image, change `image_path` in
+the notebook and keep the image, scale, seed, and iteration budget identical
+between the two runs. The UV and GitHub integration steps are intentionally
+left out; GitHub is only needed to obtain the notebook.
