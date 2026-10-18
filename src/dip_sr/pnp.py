@@ -19,6 +19,9 @@ class PnPConfig:
     data_step: float = 50.0
     denoise_relaxation: float = 0.15
     tv_weights: tuple[float, ...] = (0.008, 0.005, 0.003, 0.001)
+    initialization_weight: float = 0.35
+    anchor_strength: float = 0.5
+    device: str | None = None
     experiment_name: str = "dip-pnp-tv"
     wandb_project: str | None = None
     wandb_mode: str = "online"
@@ -57,9 +60,20 @@ def run_pnp_refinement(
     if len(config.tv_weights) != config.outer_steps:
         raise ValueError("tv_weights must contain one value per outer step")
 
-    device = initialization.device
+    device = torch.device(config.device or ("cuda" if torch.cuda.is_available() else "cpu"))
     target = pair.lr.to(device)
-    current = initialization.detach().clone().clamp(0, 1)
+    dip_output = initialization.to(device).detach().clone().clamp(0, 1)
+    anchor = torch.nn.functional.interpolate(
+        target,
+        size=pair.hr.shape[-2:],
+        mode="bicubic",
+        align_corners=False,
+    ).clamp(0, 1)
+    if not 0 <= config.initialization_weight <= 1:
+        raise ValueError("initialization_weight must be in [0, 1]")
+    if not 0 <= config.anchor_strength <= 1:
+        raise ValueError("anchor_strength must be in [0, 1]")
+    current = anchor + config.initialization_weight * (dip_output - anchor)
     best_output = current.clone()
     best_measurement_loss = float("inf")
     history: list[dict[str, float]] = []
@@ -84,9 +98,12 @@ def run_pnp_refinement(
                 )[0]
                 data_consistent = (current - config.data_step * gradient).detach().clamp(0, 1)
                 denoised = _tv_denoise(data_consistent, tv_weight).to(device)
-                current = (
+                prior_step = (
                     (1 - config.denoise_relaxation) * data_consistent
                     + config.denoise_relaxation * denoised
+                ).clamp(0, 1)
+                current = (
+                    anchor + config.anchor_strength * (prior_step - anchor)
                 ).clamp(0, 1)
             measurement = downsample(current, target.shape[-2:])
             measurement_loss = float((measurement - target).square().mean().item())

@@ -17,6 +17,8 @@ class ExperimentConfig:
     iterations: int = 2_000
     learning_rate: float = 1e-2
     channels: int = 64
+    batch_norm: bool = False
+    input_noise_std: float = 0.03
     seed: int = 42
     device: str | None = None
     log_every: int = 100
@@ -42,7 +44,7 @@ def run_experiment(pair: ImagePair, config: ExperimentConfig) -> ExperimentResul
         raise ValueError("pair.scale and config.scale must match")
     torch.manual_seed(config.seed)
     device = _device(config)
-    model = DIPGenerator(config.scale, config.channels).to(device)
+    model = DIPGenerator(config.scale, config.channels, config.batch_norm).to(device)
     noise = torch.rand(
         1,
         config.channels,
@@ -64,7 +66,8 @@ def run_experiment(pair: ImagePair, config: ExperimentConfig) -> ExperimentResul
     try:
         for iteration in range(1, config.iterations + 1):
             optimizer.zero_grad(set_to_none=True)
-            output = model(noise)
+            model_input = (noise + config.input_noise_std * torch.randn_like(noise)).clamp(0, 1)
+            output = model(model_input)
             prediction = downsample(output, target.shape[-2:])
             loss = nn.functional.mse_loss(prediction, target)
             loss.backward()
@@ -73,17 +76,18 @@ def run_experiment(pair: ImagePair, config: ExperimentConfig) -> ExperimentResul
                 with torch.no_grad():
                     output = model(noise)
                     prediction = downsample(output, target.shape[-2:])
+                    clean_loss = nn.functional.mse_loss(prediction, target)
                     metrics = {
                         "iteration": float(iteration),
-                        "loss": float(loss.item()),
+                        "loss": float(clean_loss.item()),
                         "lr_psnr": psnr(prediction, target),
                         "hr_psnr": psnr(output, hr_target),
                     }
                     history.append(metrics)
                     if run:
                         run.log(metrics, step=iteration)
-                    if loss.item() < best_loss:
-                        best_loss = loss.item()
+                    if clean_loss.item() < best_loss:
+                        best_loss = clean_loss.item()
                         best_output = output.detach().cpu()
     finally:
         if run:
