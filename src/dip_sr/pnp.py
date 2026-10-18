@@ -16,9 +16,9 @@ class PnPConfig:
 
     outer_steps: int = 4
     inner_steps: int = 8
-    data_step: float = 0.8
-    denoise_relaxation: float = 0.8
-    tv_weights: tuple[float, ...] = (0.08, 0.05, 0.03, 0.015)
+    data_step: float = 50.0
+    denoise_relaxation: float = 0.15
+    tv_weights: tuple[float, ...] = (0.008, 0.005, 0.003, 0.001)
     experiment_name: str = "dip-pnp-tv"
     wandb_project: str | None = None
     wandb_mode: str = "online"
@@ -60,6 +60,8 @@ def run_pnp_refinement(
     device = initialization.device
     target = pair.lr.to(device)
     current = initialization.detach().clone().clamp(0, 1)
+    best_output = current.clone()
+    best_measurement_loss = float("inf")
     history: list[dict[str, float]] = []
     run = None
     if config.wandb_project:
@@ -87,10 +89,15 @@ def run_pnp_refinement(
                     + config.denoise_relaxation * denoised
                 ).clamp(0, 1)
             measurement = downsample(current, target.shape[-2:])
+            measurement_loss = float((measurement - target).square().mean().item())
+            if measurement_loss < best_measurement_loss:
+                best_measurement_loss = measurement_loss
+                best_output = current.clone()
             metrics = {
                 "outer_step": float(outer_step),
                 "tv_weight": tv_weight,
                 "lr_psnr": psnr(measurement, target),
+                "best_lr_psnr": 10 * np.log10(1.0 / best_measurement_loss),
             }
             history.append(metrics)
             if run:
@@ -98,4 +105,4 @@ def run_pnp_refinement(
     finally:
         if run:
             run.finish()
-    return PnPResult(output=current.cpu(), history=history)
+    return PnPResult(output=best_output.cpu(), history=history)

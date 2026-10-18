@@ -60,9 +60,11 @@ requirements.txt             pip dependencies for local use and Colab
 The notebook now includes a controlled improvement based on the PnP ideas in
 `Lecture9_RoleOfDenoisersOutsideDenoising.pdf`. It first runs the DIP baseline,
 then performs image-space plug-and-play refinement: bicubic data-consistency
-gradient steps are alternated with TV denoising while the denoiser strength is
-gradually reduced. The HR image is used only for evaluation, not by the
-refinement.
+gradient steps are alternated with gentle TV denoising while the denoiser
+strength is gradually reduced. The refinement starts from bicubic rather than
+from a visibly failed DIP output, and retains the iterate with the best
+low-resolution measurement fit. The HR image is used only for evaluation, not
+by the refinement.
 
 ## Colab step-by-step
 
